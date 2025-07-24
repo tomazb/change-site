@@ -74,6 +74,20 @@ CONFIG_UPDATE_PACEMAKER=false
 CONFIG_DRY_RUN=false
 CONFIG_CREATE_BACKUP=false
 CONFIG_VERBOSE=false
+CONFIG_PROFILE=""
+CONFIG_FILE=""
+CONFIG_MAX_PARALLEL_CONNECTIONS=5
+
+# Configuration file paths (in order of precedence)
+readonly DEFAULT_CONFIG_PATHS=(
+    "$SCRIPT_DIR/change-site.conf"
+    "/etc/change-site/change-site.conf"
+    "$HOME/.config/change-site/change-site.conf"
+    "$HOME/.change-site.conf"
+)
+
+# Subnet pair mappings (loaded from config)
+declare -A SUBNET_PAIRS
 
 # =============================================================================
 # LOGGING FUNCTIONS
@@ -173,10 +187,15 @@ usage() {
 ${BLUE}${SCRIPT_NAME} v${SCRIPT_VERSION}${NC}
 
 ${BLUE}Usage:${NC} $SCRIPT_NAME [options] <from_subnet> <to_subnet>
+       $SCRIPT_NAME [options] --pair <pair_name>
+       $SCRIPT_NAME --list-pairs
+       $SCRIPT_NAME --rollback <operation_id>
 
 ${BLUE}Arguments:${NC}
   ${GREEN}<from_subnet>${NC}   Source subnet (e.g., 192.168)
   ${GREEN}<to_subnet>${NC}     Destination subnet (e.g., 172.23)
+  ${GREEN}<pair_name>${NC}     Predefined subnet pair name
+  ${GREEN}<operation_id>${NC}  Operation ID for rollback
 
 ${BLUE}Options:${NC}
   ${YELLOW}-h, --help${NC}       Show this help message
@@ -185,7 +204,19 @@ ${BLUE}Options:${NC}
   ${YELLOW}-n, --dry-run${NC}    Show changes without applying them
   ${YELLOW}-b, --backup${NC}     Create backups of modified files
   ${YELLOW}--verbose${NC}        Enable verbose logging
-  ${YELLOW}--config FILE${NC}    Use configuration file
+  ${YELLOW}--config FILE${NC}    Use specific configuration file
+  ${YELLOW}--profile NAME${NC}   Use configuration profile
+  ${YELLOW}--pair NAME${NC}      Use predefined subnet pair
+  ${YELLOW}--list-pairs${NC}     List available subnet pairs
+  ${YELLOW}--rollback ID${NC}    Rollback a previous operation
+
+${BLUE}Configuration:${NC}
+  Configuration files are searched in this order:
+  1. File specified with --config
+  2. ./change-site.conf
+  3. /etc/change-site/change-site.conf
+  4. ~/.config/change-site/change-site.conf
+  5. ~/.change-site.conf
 
 ${BLUE}Examples:${NC}
   Preview changes (dry-run mode):
@@ -193,6 +224,15 @@ ${BLUE}Examples:${NC}
 
   Switch subnets with backups:
     sudo $SCRIPT_NAME -b 192.168 172.23
+
+  Use predefined subnet pair:
+    sudo $SCRIPT_NAME --pair OFFICE_TO_DATACENTER
+
+  List available subnet pairs:
+    $SCRIPT_NAME --list-pairs
+
+  Rollback a previous operation:
+    sudo $SCRIPT_NAME --rollback 20250724_095500_12345
 
   Update all configurations including Pacemaker:
     sudo $SCRIPT_NAME -p -b 192.168 172.23
@@ -226,6 +266,174 @@ check_root_privileges() {
     
     if [[ "$(id -u)" -ne 0 ]]; then
         error_exit "This script must be run as root (use sudo)" "$EXIT_PERMISSION_DENIED"
+    fi
+}
+
+# =============================================================================
+# CONFIGURATION FILE FUNCTIONS
+# =============================================================================
+
+find_config_file() {
+    # If config file specified via command line, use it
+    if [[ -n "$CONFIG_FILE" ]]; then
+        if [[ -f "$CONFIG_FILE" ]]; then
+            echo "$CONFIG_FILE"
+            return 0
+        else
+            error_exit "Specified config file not found: $CONFIG_FILE" "$EXIT_VALIDATION_FAILED"
+        fi
+    fi
+    
+    # Search default locations
+    local config_path
+    for config_path in "${DEFAULT_CONFIG_PATHS[@]}"; do
+        if [[ -f "$config_path" ]]; then
+            echo "$config_path"
+            return 0
+        fi
+    done
+    
+    # No config file found - this is not an error
+    return 1
+}
+
+parse_config_line() {
+    local line="$1"
+    local current_section="$2"
+    
+    # Skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && return 0
+    [[ "$line" =~ ^[[:space:]]*$ ]] && return 0
+    
+    # Check for section headers
+    if [[ "$line" =~ ^\[([^]]+)\]$ ]]; then
+        echo "SECTION:${BASH_REMATCH[1]}"
+        return 0
+    fi
+    
+    # Parse key=value pairs
+    if [[ "$line" =~ ^[[:space:]]*([^=]+)=(.*)$ ]]; then
+        local key="${BASH_REMATCH[1]// /}"  # Remove spaces
+        local value="${BASH_REMATCH[2]}"
+        
+        # Apply profile filtering
+        if [[ -n "$current_section" && "$current_section" != "$CONFIG_PROFILE" ]]; then
+            return 0
+        fi
+        
+        echo "CONFIG:$key:$value"
+        return 0
+    fi
+    
+    return 0
+}
+
+apply_config_setting() {
+    local key="$1"
+    local value="$2"
+    
+    case "$key" in
+        CREATE_BACKUP)
+            CONFIG_CREATE_BACKUP="$value"
+            ;;
+        UPDATE_PACEMAKER)
+            CONFIG_UPDATE_PACEMAKER="$value"
+            ;;
+        VERBOSE)
+            CONFIG_VERBOSE="$value"
+            ;;
+        DRY_RUN)
+            CONFIG_DRY_RUN="$value"
+            ;;
+        BACKUP_RETENTION_DAYS)
+            BACKUP_RETENTION_DAYS="$value"
+            ;;
+        BACKUP_DIR)
+            BACKUP_DIR="$value"
+            ;;
+        LOG_FILE)
+            LOG_FILE="$value"
+            ;;
+        NETWORK_RESTART_DELAY)
+            NETWORK_RESTART_DELAY="$value"
+            ;;
+        CONNECTION_RETRY_COUNT)
+            CONNECTION_RETRY_COUNT="$value"
+            ;;
+        CONNECTION_RETRY_DELAY)
+            CONNECTION_RETRY_DELAY="$value"
+            ;;
+        MAX_PARALLEL_CONNECTIONS)
+            CONFIG_MAX_PARALLEL_CONNECTIONS="$value"
+            ;;
+        SUBNET_PAIR_*)
+            local pair_name="${key#SUBNET_PAIR_}"
+            SUBNET_PAIRS["$pair_name"]="$value"
+            ;;
+        *)
+            log_warning "Unknown configuration key: $key"
+            ;;
+    esac
+}
+
+load_configuration() {
+    local config_file
+    config_file="$(find_config_file)" || {
+        log_debug "No configuration file found, using defaults"
+        return 0
+    }
+    
+    log_debug "Loading configuration from: $config_file"
+    
+    local line
+    local current_section=""
+    
+    while IFS= read -r line; do
+        local parsed
+        parsed="$(parse_config_line "$line" "$current_section")"
+        
+        if [[ "$parsed" == SECTION:* ]]; then
+            current_section="${parsed#SECTION:}"
+            log_debug "Entering configuration section: $current_section"
+        elif [[ "$parsed" == CONFIG:* ]]; then
+            local key="${parsed#CONFIG:}"
+            key="${key%%:*}"
+            local value="${parsed#CONFIG:*:}"
+            apply_config_setting "$key" "$value"
+            log_debug "Applied config: $key=$value"
+        fi
+    done < "$config_file"
+    
+    log_debug "Configuration loaded successfully"
+}
+
+list_subnet_pairs() {
+    if [[ ${#SUBNET_PAIRS[@]} -eq 0 ]]; then
+        echo "No subnet pairs defined in configuration"
+        return 0
+    fi
+    
+    echo "Available subnet pairs:"
+    local pair_name
+    for pair_name in "${!SUBNET_PAIRS[@]}"; do
+        local pair_value="${SUBNET_PAIRS[$pair_name]}"
+        local from_subnet="${pair_value%:*}"
+        local to_subnet="${pair_value#*:}"
+        echo "  $pair_name: $from_subnet -> $to_subnet"
+    done
+}
+
+resolve_subnet_pair() {
+    local pair_name="$1"
+    
+    if [[ -n "${SUBNET_PAIRS[$pair_name]:-}" ]]; then
+        local pair_value="${SUBNET_PAIRS[$pair_name]}"
+        local from_subnet="${pair_value%:*}"
+        local to_subnet="${pair_value#*:}"
+        echo "$from_subnet $to_subnet"
+        return 0
+    else
+        error_exit "Subnet pair not found: $pair_name" "$EXIT_VALIDATION_FAILED"
     fi
 }
 
@@ -359,6 +567,7 @@ backup_file() {
     if cp "$source_file" "$backup_file"; then
         chmod 600 "$backup_file"
         log_info "Backup created: $backup_file"
+        echo "$backup_file" >> "$BACKUP_DIR/.backup_manifest"
         return 0
     else
         log_error "Failed to create backup: $backup_file"
@@ -381,12 +590,164 @@ backup_nm_connection() {
         if mv "$backup_file" "$final_backup"; then
             chmod 600 "$final_backup"
             log_info "NetworkManager connection backup created: $final_backup"
+            echo "nm:$connection_name:$final_backup" >> "$BACKUP_DIR/.backup_manifest"
+            echo "$final_backup"  # Return the backup file path
             return 0
         fi
     fi
     
     log_warning "Failed to backup NetworkManager connection: $connection_name"
     return 1
+}
+
+# =============================================================================
+# ROLLBACK FUNCTIONS
+# =============================================================================
+
+create_rollback_point() {
+    local operation_id="$1"
+    local rollback_file="$BACKUP_DIR/.rollback_${operation_id}"
+    
+    if [[ "$CONFIG_CREATE_BACKUP" != true ]] || [[ "$CONFIG_DRY_RUN" == true ]]; then
+        return 0
+    fi
+    
+    # Create rollback metadata
+    {
+        echo "# Rollback point created: $(date)"
+        echo "OPERATION_ID=$operation_id"
+        echo "FROM_SUBNET=$FROM_SUBNET"
+        echo "TO_SUBNET=$TO_SUBNET"
+        echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)"
+        echo "# Backup files created during this operation:"
+    } > "$rollback_file"
+    
+    chmod 600 "$rollback_file"
+    log_debug "Rollback point created: $rollback_file"
+}
+
+add_to_rollback_manifest() {
+    local operation_id="$1"
+    local backup_type="$2"
+    local backup_file="$3"
+    local original_file="$4"
+    local rollback_file="$BACKUP_DIR/.rollback_${operation_id}"
+    
+    if [[ "$CONFIG_CREATE_BACKUP" == true ]] && [[ "$CONFIG_DRY_RUN" == false ]]; then
+        echo "$backup_type:$original_file:$backup_file" >> "$rollback_file"
+    fi
+}
+
+list_rollback_points() {
+    if [[ ! -d "$BACKUP_DIR" ]]; then
+        echo "No backup directory found"
+        return 1
+    fi
+    
+    local rollback_files=()
+    while IFS= read -r -d '' file; do
+        rollback_files+=("$file")
+    done < <(find "$BACKUP_DIR" -name ".rollback_*" -print0 2>/dev/null)
+    
+    if [[ ${#rollback_files[@]} -eq 0 ]]; then
+        echo "No rollback points found"
+        return 1
+    fi
+    
+    echo "Available rollback points:"
+    local file
+    for file in "${rollback_files[@]}"; do
+        local operation_id="${file##*/.rollback_}"
+        local timestamp
+        local from_subnet
+        local to_subnet
+        
+        # Extract metadata
+        while IFS= read -r line; do
+            case "$line" in
+                TIMESTAMP=*)
+                    timestamp="${line#TIMESTAMP=}"
+                    ;;
+                FROM_SUBNET=*)
+                    from_subnet="${line#FROM_SUBNET=}"
+                    ;;
+                TO_SUBNET=*)
+                    to_subnet="${line#TO_SUBNET=}"
+                    ;;
+            esac
+        done < "$file"
+        
+        echo "  $operation_id ($timestamp): $from_subnet -> $to_subnet"
+    done
+}
+
+perform_rollback() {
+    local operation_id="$1"
+    local rollback_file="$BACKUP_DIR/.rollback_${operation_id}"
+    
+    if [[ ! -f "$rollback_file" ]]; then
+        error_exit "Rollback point not found: $operation_id" "$EXIT_VALIDATION_FAILED"
+    fi
+    
+    log_info "Starting rollback for operation: $operation_id"
+    
+    # Read rollback manifest
+    local line
+    local rollback_count=0
+    while IFS= read -r line; do
+        # Skip comments and metadata
+        [[ "$line" =~ ^# ]] && continue
+        [[ "$line" =~ ^[A-Z_]+=.* ]] && continue
+        [[ -z "$line" ]] && continue
+        
+        # Parse backup entry: type:original_file:backup_file
+        local backup_type="${line%%:*}"
+        local remaining="${line#*:}"
+        local original_file="${remaining%%:*}"
+        local backup_file="${remaining#*:}"
+        
+        case "$backup_type" in
+            file)
+                if [[ -f "$backup_file" ]]; then
+                    if cp "$backup_file" "$original_file"; then
+                        log_info "Restored file: $original_file"
+                        ((rollback_count++))
+                    else
+                        log_error "Failed to restore file: $original_file"
+                    fi
+                else
+                    log_warning "Backup file not found: $backup_file"
+                fi
+                ;;
+            nm)
+                local connection_name="${original_file}"
+                if [[ -f "$backup_file" ]]; then
+                    if nmcli connection import "$backup_file" 2>/dev/null; then
+                        log_info "Restored NetworkManager connection: $connection_name"
+                        ((rollback_count++))
+                    else
+                        log_error "Failed to restore NetworkManager connection: $connection_name"
+                    fi
+                else
+                    log_warning "NetworkManager backup not found: $backup_file"
+                fi
+                ;;
+            *)
+                log_warning "Unknown backup type: $backup_type"
+                ;;
+        esac
+    done < "$rollback_file"
+    
+    if ((rollback_count > 0)); then
+        log_success "Rollback completed: $rollback_count items restored"
+        
+        # Restart NetworkManager if any connections were restored
+        if grep -q "^nm:" "$rollback_file" 2>/dev/null; then
+            restart_networkmanager
+        fi
+    else
+        log_warning "No items were restored during rollback"
+    fi
 }
 
 # =============================================================================
@@ -606,6 +967,7 @@ update_single_connection() {
     local connection_name="$1"
     local from_subnet="$2"
     local to_subnet="$3"
+    local operation_id="${4:-}"
     local connection_modified=false
     
     log_debug "Processing connection: $connection_name"
@@ -627,7 +989,11 @@ update_single_connection() {
     fi
     
     # Create backup before modification
-    backup_nm_connection "$connection_name"
+    local backup_file
+    backup_file="$(backup_nm_connection "$connection_name")"
+    if [[ -n "$operation_id" && -n "$backup_file" ]]; then
+        add_to_rollback_manifest "$operation_id" "nm" "$backup_file" "$connection_name"
+    fi
     
     # Update different components
     if update_connection_addresses "$connection_name" "$from_subnet" "$to_subnet" "$connection_info"; then
@@ -699,6 +1065,7 @@ reapply_connection() {
 update_nm_connections() {
     local from_subnet="$1"
     local to_subnet="$2"
+    local operation_id="${3:-}"
     local modified_count=0
     local modified_connections=()
     local connections=()
@@ -712,7 +1079,7 @@ update_nm_connections() {
     for connection in "${connections[@]}"; do
         [[ -z "$connection" ]] && continue
         
-        if update_single_connection "$connection" "$from_subnet" "$to_subnet"; then
+        if update_single_connection "$connection" "$from_subnet" "$to_subnet" "$operation_id"; then
             ((modified_count++))
             modified_connections+=("$connection")
         fi
@@ -881,6 +1248,25 @@ parse_arguments() {
                 CONFIG_FILE="$2"
                 shift 2
                 ;;
+            --profile)
+                CONFIG_PROFILE="$2"
+                shift 2
+                ;;
+            --list-pairs)
+                # Set flag to list pairs after configuration is loaded
+                LIST_PAIRS_FLAG=true
+                shift
+                ;;
+            --pair)
+                # Store pair name to resolve after configuration is loaded
+                PAIR_NAME="$2"
+                shift 2
+                ;;
+            --rollback)
+                # Store rollback ID to process after configuration is loaded
+                ROLLBACK_ID="$2"
+                shift 2
+                ;;
             -*)
                 error_exit "Unknown option: $1" "$EXIT_INVALID_ARGS"
                 ;;
@@ -889,6 +1275,35 @@ parse_arguments() {
                 ;;
         esac
     done
+    
+    # Handle special operations that need configuration
+    if [[ "${LIST_PAIRS_FLAG:-false}" == true ]]; then
+        load_configuration
+        list_subnet_pairs
+        # Disable cleanup trap before exiting
+        trap - EXIT
+        exit 0
+    fi
+    
+    if [[ -n "${ROLLBACK_ID:-}" ]]; then
+        load_configuration
+        perform_rollback "$ROLLBACK_ID"
+        # Disable cleanup trap before exiting
+        trap - EXIT
+        exit 0
+    fi
+    
+    if [[ -n "${PAIR_NAME:-}" ]]; then
+        load_configuration
+        local subnets
+        subnets="$(resolve_subnet_pair "$PAIR_NAME")"
+        read -r FROM_SUBNET TO_SUBNET <<< "$subnets"
+    fi
+    
+    # If using --pair, we already have the subnets
+    if [[ -n "${FROM_SUBNET:-}" && -n "${TO_SUBNET:-}" ]]; then
+        return 0
+    fi
     
     # Verify required arguments
     if [[ $# -ne 2 ]]; then
@@ -903,6 +1318,9 @@ parse_arguments() {
 main() {
     # Parse command line arguments first
     parse_arguments "$@"
+    
+    # Load configuration after argument parsing
+    load_configuration
     
     log_info "Starting $SCRIPT_NAME v$SCRIPT_VERSION"
     log_debug "Command line: $0 $*"
@@ -924,7 +1342,12 @@ main() {
     log_debug "Creating backup directory..."
     create_backup_directory
     
+    # Create rollback point
+    local operation_id="$(date +%Y%m%d_%H%M%S)_$$"
+    create_rollback_point "$operation_id"
+    
     log_info "Starting site change from subnet $FROM_SUBNET to $TO_SUBNET"
+    log_debug "Operation ID: $operation_id"
     
     if [[ "$CONFIG_DRY_RUN" == true ]]; then
         log_info "DRY RUN MODE - No changes will be applied"
@@ -934,19 +1357,19 @@ main() {
     local success=true
     
     log_debug "Updating NetworkManager connections..."
-    if ! update_nm_connections "$FROM_SUBNET" "$TO_SUBNET"; then
+    if ! update_nm_connections "$FROM_SUBNET" "$TO_SUBNET" "$operation_id"; then
         log_error "Failed to update NetworkManager connections"
         success=false
     fi
     
     log_debug "Updating hosts file..."
-    if ! update_hosts_file "$FROM_SUBNET" "$TO_SUBNET"; then
+    if ! update_hosts_file "$FROM_SUBNET" "$TO_SUBNET" "$operation_id"; then
         log_error "Failed to update hosts file"
         success=false
     fi
     
     log_debug "Updating Pacemaker configuration..."
-    if ! update_pacemaker_config "$FROM_SUBNET" "$TO_SUBNET"; then
+    if ! update_pacemaker_config "$FROM_SUBNET" "$TO_SUBNET" "$operation_id"; then
         log_error "Failed to update Pacemaker configuration"
         success=false
     fi
@@ -957,8 +1380,12 @@ main() {
             log_success "Dry run completed successfully - no changes were applied"
         else
             log_success "Site change completed successfully"
+            log_info "Rollback available with: $SCRIPT_NAME --rollback $operation_id"
         fi
     else
+        if [[ "$CONFIG_CREATE_BACKUP" == true ]] && [[ "$CONFIG_DRY_RUN" == false ]]; then
+            log_error "Operation failed - consider rollback with: $SCRIPT_NAME --rollback $operation_id"
+        fi
         error_exit "Site change completed with errors" "$EXIT_OPERATION_FAILED"
     fi
 }

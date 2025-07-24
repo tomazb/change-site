@@ -1,0 +1,3 @@
+Available subnet pairs:
+  OFFICE_TO_DATACENTER: 192.168 -> 172.23
+  DATACENTER_TO_OFFICE: 172.23 -> 192.168

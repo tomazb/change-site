@@ -1,0 +1,80 @@
+# Change Site Configuration File
+# 
+# This file contains default settings and predefined subnet mappings
+# for the change-site.sh script.
+#
+# Format: KEY=VALUE (no spaces around =)
+# Comments start with # and are ignored
+#
+
+# =============================================================================
+# GLOBAL SETTINGS
+# =============================================================================
+
+# Default behavior settings
+CREATE_BACKUP=true
+UPDATE_PACEMAKER=false
+VERBOSE=false
+DRY_RUN=false
+
+# Backup configuration
+BACKUP_RETENTION_DAYS=30
+BACKUP_DIR=/var/backups/change-site
+
+# Logging configuration
+LOG_FILE=/var/log/change-site.log
+LOG_LEVEL=INFO
+
+# Network operation settings
+NETWORK_RESTART_DELAY=2
+CONNECTION_RETRY_COUNT=3
+CONNECTION_RETRY_DELAY=1
+
+# Performance settings
+MAX_PARALLEL_CONNECTIONS=5
+
+# =============================================================================
+# PREDEFINED SUBNET MAPPINGS
+# =============================================================================
+
+# Define common subnet pairs for quick switching
+# Format: SUBNET_PAIR_<NAME>=<FROM_SUBNET>:<TO_SUBNET>
+
+# Office locations
+SUBNET_PAIR_OFFICE_TO_DATACENTER=192.168:172.23
+SUBNET_PAIR_DATACENTER_TO_OFFICE=172.23:192.168
+
+# Development environments  
+SUBNET_PAIR_DEV_TO_STAGING=10.0:10.1
+SUBNET_PAIR_STAGING_TO_PROD=10.1:10.2
+
+# Site redundancy
+SUBNET_PAIR_SITE_A_TO_B=192.168:172.16
+SUBNET_PAIR_SITE_B_TO_A=172.16:192.168
+
+# =============================================================================
+# PROFILE CONFIGURATIONS
+# =============================================================================
+
+# Profile: development
+[development]
+CREATE_BACKUP=false
+DRY_RUN=true
+VERBOSE=true
+LOG_LEVEL=DEBUG
+
+# Profile: production
+[production]
+CREATE_BACKUP=true
+DRY_RUN=false
+VERBOSE=false
+LOG_LEVEL=INFO
+UPDATE_PACEMAKER=true
+
+# Profile: testing
+[testing]
+CREATE_BACKUP=false
+DRY_RUN=true
+VERBOSE=true
+LOG_LEVEL=DEBUG
+MAX_PARALLEL_CONNECTIONS=2
