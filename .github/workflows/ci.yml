@@ -30,7 +30,8 @@ jobs:
 
           # Run shellcheck with appropriate flags to reduce noise
           find . -name "*.sh" -type f -not -path "./archive/*" \
-            -exec shellcheck -e SC2155,SC2034,SC2188,SC2295,SC2086,SC2126,SC2001 {} + \
+            -exec shellcheck \
+              -e SC2155,SC2034,SC2188,SC2295,SC2086,SC2126,SC2001 {} + \
             || echo "⚠️ Shellcheck issues found but not blocking CI"
 
       - name: Check script syntax
@@ -238,12 +239,20 @@ jobs:
 
     steps:
       - name: Notify success
-        if: ${{ needs.lint.result == 'success' && needs.test.result == 'success' && needs.security-scan.result == 'success' && needs.documentation.result == 'success' }}
+        if: >-
+          ${{ needs.lint.result == 'success' &&
+              needs.test.result == 'success' &&
+              needs.security-scan.result == 'success' &&
+              needs.documentation.result == 'success' }}
         run: |
           echo "✅ All CI/CD checks passed successfully!"
 
       - name: Notify failure
-        if: ${{ needs.lint.result == 'failure' || needs.test.result == 'failure' || needs.security-scan.result == 'failure' || needs.documentation.result == 'failure' }}
+        if: >-
+          ${{ needs.lint.result == 'failure' ||
+              needs.test.result == 'failure' ||
+              needs.security-scan.result == 'failure' ||
+              needs.documentation.result == 'failure' }}
         run: |
           echo "❌ CI/CD pipeline failed. Check the logs for details."
           exit 1
