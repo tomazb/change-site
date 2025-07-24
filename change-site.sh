@@ -21,18 +21,18 @@ readonly SCRIPT_VERSION="2.0.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Network configuration constants
-readonly NETWORK_RESTART_DELAY=2
-readonly CONNECTION_RETRY_COUNT=3
+NETWORK_RESTART_DELAY=2
+CONNECTION_RETRY_COUNT=3
 readonly CONNECTION_RETRY_DELAY=1
 
 # File paths
 readonly HOSTS_FILE="/etc/hosts"
 readonly TEMP_DIR="/tmp"
-readonly LOG_FILE="/var/log/change-site.log"
+LOG_FILE="/var/log/change-site.log"
 
 # Backup configuration
-readonly BACKUP_RETENTION_DAYS=30
-readonly BACKUP_DIR="/var/backups/change-site"
+BACKUP_RETENTION_DAYS=30
+BACKUP_DIR="/var/backups/change-site"
 
 # Validation patterns
 readonly SUBNET_PATTERN='^[0-9]{1,3}\.[0-9]{1,3}$'
@@ -317,7 +317,7 @@ parse_config_line() {
         local value="${BASH_REMATCH[2]}"
         
         # Apply profile filtering
-        if [[ -n "$current_section" && "$current_section" != "$CONFIG_PROFILE" ]]; then
+        if [[ -n "$current_section" && -n "${CONFIG_PROFILE:-}" && "$current_section" != "$CONFIG_PROFILE" ]]; then
             return 0
         fi
         
@@ -345,6 +345,9 @@ apply_config_setting() {
         DRY_RUN)
             CONFIG_DRY_RUN="$value"
             ;;
+        LOG_LEVEL)
+            CONFIG_LOG_LEVEL="$value"
+            ;;
         BACKUP_RETENTION_DAYS)
             BACKUP_RETENTION_DAYS="$value"
             ;;
@@ -361,7 +364,8 @@ apply_config_setting() {
             CONNECTION_RETRY_COUNT="$value"
             ;;
         CONNECTION_RETRY_DELAY)
-            CONNECTION_RETRY_DELAY="$value"
+            # CONNECTION_RETRY_DELAY is readonly, skipping configuration
+            echo "[WARNING] CONNECTION_RETRY_DELAY is readonly and cannot be configured" >&2
             ;;
         MAX_PARALLEL_CONNECTIONS)
             CONFIG_MAX_PARALLEL_CONNECTIONS="$value"
@@ -377,9 +381,13 @@ apply_config_setting() {
 }
 
 load_configuration() {
+    # Temporarily disable strict error handling for configuration loading
+    set +e
+    
     local config_file
     config_file="$(find_config_file)" || {
         log_debug "No configuration file found, using defaults"
+        set -e
         return 0
     }
     
@@ -387,8 +395,13 @@ load_configuration() {
     
     local line
     local current_section=""
+    local line_count=0
     
-    while IFS= read -r line; do
+    # Read file line by line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        ((line_count++))
+        log_debug "Processing line $line_count: $line"
+        
         local parsed
         parsed="$(parse_config_line "$line" "$current_section")"
         
@@ -404,7 +417,10 @@ load_configuration() {
         fi
     done < "$config_file"
     
-    log_debug "Configuration loaded successfully"
+    log_debug "Configuration loaded successfully, processed $line_count lines"
+    
+    # Re-enable strict error handling
+    set -e
 }
 
 list_subnet_pairs() {
