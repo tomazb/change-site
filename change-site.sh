@@ -17,7 +17,7 @@ set -euo pipefail
 # =============================================================================
 
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly SCRIPT_VERSION="2.0.0"
+readonly SCRIPT_VERSION="1.1.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Network configuration constants

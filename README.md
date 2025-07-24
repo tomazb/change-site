@@ -246,7 +246,16 @@ The refactored script follows best practices with:
 
 ## Version History
 
-### v2.0.0 (Current)
+### v1.1.0 (Current)
+- Enhanced monitoring and logging with structured JSON format
+- Performance tracking and health monitoring capabilities
+- Alert system with email notifications
+- Interactive monitoring dashboard
+- Comprehensive staging testing guide
+- Complete project status documentation
+- Organized documentation structure in docs/ directory
+
+### v1.0.0
 - Complete refactoring with modular design
 - Enhanced security and error handling
 - Comprehensive dry-run mode with mock data
@@ -254,8 +263,9 @@ The refactored script follows best practices with:
 - RHEL 8-10 compatibility improvements
 - Comprehensive test suite
 - Signal handling and cleanup
+- Configuration file support and rollback functionality
 
-### v1.0.0 (Legacy)
+### v0.1.0 (Legacy)
 - Original monolithic script
 - Basic functionality only
 - Limited error handling
