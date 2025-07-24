@@ -154,29 +154,44 @@ Logs include timestamps and are written to `/var/log/change-site.log` when runni
 
 ## Testing
 
-The project includes comprehensive testing infrastructure:
+The project includes comprehensive testing infrastructure organized in the `tests/` directory:
 
 ### Running Tests
 ```bash
-# Run comprehensive test suite
-./test-change-site.sh
+# Run all test suites
+./tests/run-tests.sh
 
-# Run basic functionality tests
-./simple-test.sh
+# Run specific test suites
+./tests/run-tests.sh --basic      # Basic functionality tests
+./tests/run-tests.sh --integration # Integration tests
+./tests/run-tests.sh --enhanced   # Enhanced tests with mock environments
+
+# Run individual test files
+./tests/test-change-site.sh       # Basic functionality
+./tests/test-integration.sh       # Integration testing
+./tests/test-change-site-enhanced.sh # Enhanced testing
 
 # Test specific functionality with dry-run
 ./change-site.sh --verbose --dry-run 192.168 172.23
 ```
 
+### Test Suites
+- **Basic Tests**: Core functionality, syntax validation, argument parsing
+- **Integration Tests**: Configuration files, rollback functionality, performance
+- **Enhanced Tests**: Mock environments, multi-connection scenarios, memory testing
+
 ### Test Coverage
-- Syntax validation
-- Help and version options
-- Argument validation
-- Subnet format validation
-- Dry-run functionality
-- Error handling
-- RHEL compatibility
-- Security practices
+- Configuration file support and profile loading
+- Rollback functionality with operation tracking
+- Syntax validation and argument parsing
+- Subnet format validation and error handling
+- Dry-run functionality with mock data
+- Multi-connection NetworkManager scenarios
+- Performance benchmarking and memory usage
+- RHEL 8-10 compatibility testing
+- Security practices and file permissions
+
+See `tests/README.md` for detailed testing documentation.
 
 ## Troubleshooting
 

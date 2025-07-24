@@ -15,7 +15,7 @@ set -euo pipefail
 # TEST CONFIGURATION
 # =============================================================================
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly CHANGE_SITE_SCRIPT="$SCRIPT_DIR/change-site.sh"
 readonly TEST_TEMP_DIR="/tmp/change-site-integration-tests"
 
@@ -78,15 +78,15 @@ assert_success() {
     local test_name="$1"
     local exit_code="$2"
     
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     if [[ "$exit_code" -eq 0 ]]; then
         echo -e "${GREEN}✓${NC} $test_name"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
         return 0
     else
         echo -e "${RED}✗${NC} $test_name (exit code: $exit_code)"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
         return 1
     fi
 }
@@ -96,16 +96,16 @@ assert_contains() {
     local needle="$2"
     local test_name="$3"
     
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     if [[ "$haystack" == *"$needle"* ]]; then
         echo -e "${GREEN}✓${NC} $test_name"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
         return 0
     else
         echo -e "${RED}✗${NC} $test_name"
         echo -e "  Expected to find: $needle"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
         return 1
     fi
 }
@@ -171,12 +171,12 @@ test_operation_id_generation() {
     
     if [[ -n "$operation_id" ]] && [[ "$operation_id" =~ ^[0-9]{8}_[0-9]{6}_[0-9]+$ ]]; then
         echo -e "${GREEN}✓${NC} Operation ID format valid: $operation_id"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Operation ID format invalid or missing"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 test_rollback_manifest_creation() {
@@ -192,12 +192,12 @@ test_rollback_manifest_creation() {
     # Check for rollback-related output
     if echo "$output" | grep -q -i "operation\|manifest\|rollback"; then
         echo -e "${GREEN}✓${NC} Rollback functionality present in output"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} Rollback functionality not explicitly mentioned (may be normal for dry-run)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 # =============================================================================
@@ -219,12 +219,12 @@ test_multi_connection_handling() {
     
     if [[ "$connection_count" -gt 0 ]]; then
         echo -e "${GREEN}✓${NC} Connection processing detected ($connection_count mentions)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} No connection processing detected (may be normal without NetworkManager)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 test_hosts_file_processing() {
@@ -253,12 +253,12 @@ test_error_handling() {
     
     if [[ "${exit_code:-0}" -ne 0 ]]; then
         echo -e "${GREEN}✓${NC} Invalid subnet format properly rejected"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Invalid subnet format should be rejected"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test missing configuration file
     output=$("$CHANGE_SITE_SCRIPT" --config /nonexistent/config.conf --dry-run 192.168 172.16 2>&1) || exit_code=$?
@@ -266,12 +266,12 @@ test_error_handling() {
     # Should handle missing config gracefully or fail appropriately
     if [[ "${exit_code:-0}" -ne 0 ]] || echo "$output" | grep -q -i "warning\|error"; then
         echo -e "${GREEN}✓${NC} Missing configuration file handled appropriately"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} Missing configuration file handling unclear"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 test_invalid_options() {
@@ -284,12 +284,12 @@ test_invalid_options() {
     
     if [[ "${exit_code:-0}" -ne 0 ]]; then
         echo -e "${GREEN}✓${NC} Invalid option properly rejected"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Invalid option should be rejected"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 # =============================================================================
@@ -309,12 +309,12 @@ test_basic_performance() {
     
     if (( $(echo "$duration <= 2.0" | bc -l 2>/dev/null || echo "1") )); then
         echo -e "${GREEN}✓${NC} Help generation performance acceptable (${duration}s)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} Help generation slower than expected (${duration}s)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test configuration loading performance
     start_time=$(date +%s.%N)
@@ -324,12 +324,12 @@ test_basic_performance() {
     
     if (( $(echo "$duration <= 3.0" | bc -l 2>/dev/null || echo "1") )); then
         echo -e "${GREEN}✓${NC} Configuration loading performance acceptable (${duration}s)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} Configuration loading slower than expected (${duration}s)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 # =============================================================================

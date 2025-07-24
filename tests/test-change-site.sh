@@ -12,7 +12,7 @@ set -euo pipefail
 # TEST FRAMEWORK CONFIGURATION
 # =============================================================================
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly CHANGE_SITE_SCRIPT="$SCRIPT_DIR/change-site.sh"
 readonly TEST_LOG="/tmp/change-site-test.log"
 readonly TEST_TEMP_DIR="/tmp/change-site-tests"

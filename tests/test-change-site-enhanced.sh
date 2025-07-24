@@ -18,7 +18,7 @@ set -euo pipefail
 # ENHANCED TEST FRAMEWORK CONFIGURATION
 # =============================================================================
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly CHANGE_SITE_SCRIPT="$SCRIPT_DIR/change-site.sh"
 readonly TEST_LOG="/tmp/change-site-enhanced-test.log"
 readonly TEST_TEMP_DIR="/tmp/change-site-enhanced-tests"
@@ -252,19 +252,19 @@ assert_equals() {
     local actual="$2"
     local test_name="$3"
     
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     if [[ "$expected" == "$actual" ]]; then
         echo -e "${GREEN}✓${NC} $test_name"
         log_test "PASS: $test_name"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
         return 0
     else
         echo -e "${RED}✗${NC} $test_name"
         echo -e "  Expected: $expected"
         echo -e "  Actual:   $actual"
         log_test "FAIL: $test_name - Expected: $expected, Actual: $actual"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
         return 1
     fi
 }
@@ -275,18 +275,18 @@ assert_performance_threshold() {
     local threshold="$3"
     local test_name="$4"
     
-    ((PERFORMANCE_TESTS_RUN++))
+    ((PERFORMANCE_TESTS_RUN++)) || true
     
     if (( $(echo "$actual_time <= $threshold" | bc -l) )); then
         echo -e "${GREEN}✓${NC} $test_name (${actual_time}s <= ${threshold}s)"
         log_performance "PASS: $test_name - $metric_name: ${actual_time}s"
         PERFORMANCE_METRICS["$metric_name"]="$actual_time"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
         return 0
     else
         echo -e "${RED}✗${NC} $test_name (${actual_time}s > ${threshold}s)"
         log_performance "FAIL: $test_name - $metric_name: ${actual_time}s exceeded threshold ${threshold}s"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
         return 1
     fi
 }
@@ -296,17 +296,17 @@ assert_file_contains_pattern() {
     local pattern="$2"
     local test_name="$3"
     
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     if [[ -f "$file" ]] && grep -q "$pattern" "$file"; then
         echo -e "${GREEN}✓${NC} $test_name"
         log_test "PASS: $test_name"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
         return 0
     else
         echo -e "${RED}✗${NC} $test_name"
         log_test "FAIL: $test_name - Pattern '$pattern' not found in file '$file'"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
         return 1
     fi
 }
@@ -326,12 +326,12 @@ test_mock_networkmanager_environment() {
     
     if echo "$output" | grep -q "mock-connection-1"; then
         echo -e "${GREEN}✓${NC} Mock NetworkManager connections available"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Mock NetworkManager connections not found"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test mock connection modification
     output=$(nmcli connection modify mock-connection-1 ipv4.addresses 172.16.1.100/24 2>&1)
@@ -345,7 +345,7 @@ test_mock_networkmanager_environment() {
 test_multi_connection_scenarios() {
     echo -e "\n${PURPLE}Testing Multi-Connection Scenarios...${NC}"
     
-    ((INTEGRATION_TESTS_RUN++))
+    ((INTEGRATION_TESTS_RUN++)) || true
     
     # Test handling multiple connections with same subnet
     local output
@@ -361,18 +361,18 @@ test_multi_connection_scenarios() {
     
     if [[ "$connection_count" -ge 2 ]]; then
         echo -e "${GREEN}✓${NC} Multiple connections detected and processed"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Expected multiple connections, found: $connection_count"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 test_mixed_subnet_scenarios() {
     echo -e "\n${PURPLE}Testing Mixed Subnet Scenarios...${NC}"
     
-    ((INTEGRATION_TESTS_RUN++))
+    ((INTEGRATION_TESTS_RUN++)) || true
     
     # Test scenario where only some connections match the target subnet
     local output
@@ -385,12 +385,12 @@ test_mixed_subnet_scenarios() {
     # Verify that non-matching connections are not affected
     if echo "$output" | grep -q "mock-connection-3"; then
         echo -e "${GREEN}✓${NC} Connections with matching subnets identified"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} No connections found with target subnet (expected for test)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 # =============================================================================
@@ -400,7 +400,7 @@ test_mixed_subnet_scenarios() {
 test_error_conditions() {
     echo -e "\n${PURPLE}Testing Error Conditions...${NC}"
     
-    ((INTEGRATION_TESTS_RUN++))
+    ((INTEGRATION_TESTS_RUN++)) || true
     
     # Test invalid configuration file
     local output
@@ -411,24 +411,24 @@ test_error_conditions() {
     # Should handle missing config file gracefully
     if [[ "${exit_code:-0}" -ne 0 ]] || echo "$output" | grep -q -i "warning\|error"; then
         echo -e "${GREEN}✓${NC} Missing config file handled appropriately"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Missing config file not handled properly"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test invalid subnet pair
     output=$("$CHANGE_SITE_SCRIPT" --pair NONEXISTENT_PAIR --dry-run 2>&1) || exit_code=$?
     
     if [[ "${exit_code:-0}" -ne 0 ]]; then
         echo -e "${GREEN}✓${NC} Invalid subnet pair rejected appropriately"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Invalid subnet pair should be rejected"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 test_permission_errors() {
@@ -449,7 +449,7 @@ test_permission_errors() {
     # In dry-run mode, permission errors might not occur, so we check for appropriate handling
     echo -e "${GREEN}✓${NC} Permission error handling test completed"
     ((TESTS_PASSED++))
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Cleanup
     chmod 644 "$readonly_file"
@@ -504,12 +504,12 @@ test_memory_usage() {
         # Memory usage should be reasonable (less than 50MB for a shell script)
         if [[ "${memory_kb:-0}" -lt 51200 ]]; then
             echo -e "${GREEN}✓${NC} Memory usage acceptable: ${memory_kb} KB"
-            ((TESTS_PASSED++))
+            ((TESTS_PASSED++)) || true
         else
             echo -e "${YELLOW}!${NC} High memory usage: ${memory_kb} KB"
-            ((TESTS_PASSED++))  # Not a failure, just a warning
+            ((TESTS_PASSED++)) || true  # Not a failure, just a warning
         fi
-        ((TESTS_RUN++))
+        ((TESTS_RUN++)) || true
         
         log_performance "Memory usage: ${memory_kb} KB"
     else
@@ -524,7 +524,7 @@ test_memory_usage() {
 test_configuration_integration() {
     echo -e "\n${PURPLE}Testing Configuration Integration...${NC}"
     
-    ((INTEGRATION_TESTS_RUN++))
+    ((INTEGRATION_TESTS_RUN++)) || true
     
     # Test profile-based configuration
     local output
@@ -537,12 +537,12 @@ test_configuration_integration() {
     # Test predefined subnet pairs from config
     if echo "$output" | grep -q "TEST1"; then
         echo -e "${GREEN}✓${NC} Predefined subnet pairs loaded from config"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Predefined subnet pairs not found in config"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test using predefined pair
     output=$("$CHANGE_SITE_SCRIPT" --config "$TEST_TEMP_DIR/test-config.conf" --pair TEST1 --dry-run 2>&1) || exit_code=$?
@@ -557,7 +557,7 @@ test_configuration_integration() {
 test_rollback_functionality() {
     echo -e "\n${PURPLE}Testing Rollback Functionality...${NC}"
     
-    ((INTEGRATION_TESTS_RUN++))
+    ((INTEGRATION_TESTS_RUN++)) || true
     
     # Test operation ID generation
     local output
@@ -568,22 +568,22 @@ test_rollback_functionality() {
     
     if [[ -n "$operation_id" ]] && [[ "$operation_id" =~ ^[0-9]{8}_[0-9]{6}_[0-9]+$ ]]; then
         echo -e "${GREEN}✓${NC} Operation ID generated correctly: $operation_id"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${RED}✗${NC} Operation ID not generated or invalid format"
-        ((TESTS_FAILED++))
+        ((TESTS_FAILED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
     
     # Test rollback manifest creation (in dry-run mode)
     if echo "$output" | grep -q "manifest"; then
         echo -e "${GREEN}✓${NC} Rollback manifest functionality present"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     else
         echo -e "${YELLOW}!${NC} Rollback manifest not mentioned (may be normal for dry-run)"
-        ((TESTS_PASSED++))
+        ((TESTS_PASSED++)) || true
     fi
-    ((TESTS_RUN++))
+    ((TESTS_RUN++)) || true
 }
 
 # =============================================================================
@@ -606,17 +606,17 @@ test_container_compatibility() {
         # In container, some commands might not be available
         if [[ "${exit_code:-0}" -eq 0 ]] || echo "$output" | grep -q "DRY RUN"; then
             echo -e "${GREEN}✓${NC} Script works in container environment"
-            ((TESTS_PASSED++))
+            ((TESTS_PASSED++)) || true
         else
             echo -e "${YELLOW}!${NC} Script behavior in container needs attention"
-            ((TESTS_PASSED++))  # Not necessarily a failure
+            ((TESTS_PASSED++)) || true  # Not necessarily a failure
         fi
-        ((TESTS_RUN++))
+        ((TESTS_RUN++)) || true
     else
         echo -e "${CYAN}Not in container environment${NC}"
         echo -e "${GREEN}✓${NC} Container compatibility test skipped (not in container)"
-        ((TESTS_PASSED++))
-        ((TESTS_RUN++))
+        ((TESTS_PASSED++)) || true
+        ((TESTS_RUN++)) || true
     fi
 }
 
