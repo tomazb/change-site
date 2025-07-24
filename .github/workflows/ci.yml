@@ -29,10 +29,13 @@ jobs:
           echo "Linting shell scripts..."
 
           # Run shellcheck with appropriate flags to reduce noise
+          # Set to non-blocking to allow pipeline to continue
+          set +e
           find . -name "*.sh" -type f -not -path "./archive/*" \
             -exec shellcheck \
               -e SC2155,SC2034,SC2188,SC2295,SC2086,SC2126,SC2001 {} + \
             || echo "⚠️ Shellcheck issues found but not blocking CI"
+          set -e
 
       - name: Check script syntax
         run: |
@@ -136,8 +139,10 @@ jobs:
           fi
 
           # Validate markdown files with our configuration
+          set +e
           markdownlint docs/*.md README.md CONTRIBUTING.md SECURITY.md \
             || echo "⚠️ Markdown validation issues found but not blocking"
+          set -e
 
   build:
     name: Build and Package
