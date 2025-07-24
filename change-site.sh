@@ -316,8 +316,20 @@ parse_config_line() {
         local key="${BASH_REMATCH[1]// /}"  # Remove spaces
         local value="${BASH_REMATCH[2]}"
         
-        # Apply profile filtering
+        # Apply profile filtering - only filter if we're in a specific section AND have a profile set
         if [[ -n "$current_section" && -n "${CONFIG_PROFILE:-}" && "$current_section" != "$CONFIG_PROFILE" ]]; then
+            return 0
+        fi
+        
+        # If we have a profile set but we're not in any section, only process if no profile is active
+        if [[ -z "$current_section" && -n "${CONFIG_PROFILE:-}" ]]; then
+            # We're in global section with a profile set - process global settings
+            echo "CONFIG:$key:$value"
+            return 0
+        fi
+        
+        # If no profile is set, process everything except profile-specific sections
+        if [[ -z "${CONFIG_PROFILE:-}" && -n "$current_section" ]]; then
             return 0
         fi
         
@@ -419,12 +431,17 @@ load_configuration() {
     
     log_debug "Configuration loaded successfully, processed $line_count lines"
     
-    # Re-enable strict error handling
+    # Restore strict error handling
     set -e
 }
 
 list_subnet_pairs() {
-    if [[ ${#SUBNET_PAIRS[@]} -eq 0 ]]; then
+    local count=0
+    if [[ -v SUBNET_PAIRS ]]; then
+        count=${#SUBNET_PAIRS[@]}
+    fi
+    
+    if [[ $count -eq 0 ]]; then
         echo "No subnet pairs defined in configuration"
         return 0
     fi
@@ -665,7 +682,12 @@ list_rollback_points() {
         rollback_files+=("$file")
     done < <(find "$BACKUP_DIR" -name ".rollback_*" -print0 2>/dev/null)
     
-    if [[ ${#rollback_files[@]} -eq 0 ]]; then
+    local count=0
+    if [[ -v rollback_files ]]; then
+        count=${#rollback_files[@]}
+    fi
+    
+    if [[ $count -eq 0 ]]; then
         echo "No rollback points found"
         return 1
     fi
