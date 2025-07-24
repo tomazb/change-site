@@ -857,7 +857,7 @@ parse_connection_field() {
     
     while IFS= read -r line; do
         if [[ "$line" == "${field_name}:"* ]]; then
-            local value="${line#${field_name}:}"
+            local value="${line#"${field_name}":}"
             [[ -n "$value" ]] && values+=("$value")
         fi
     done <<< "$connection_info"
@@ -881,7 +881,7 @@ update_connection_addresses() {
         if [[ "$address" == "${from_subnet}"* ]]; then
             local ip_only="${address%/*}"
             local prefix="${address#*/}"
-            local last_part="${ip_only#${from_subnet}.}"
+            local last_part="${ip_only#"${from_subnet}".}"
             local new_ip="${to_subnet}.${last_part}/${prefix}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -914,7 +914,7 @@ update_connection_gateway() {
     
     for gateway in "${gateways[@]}"; do
         if [[ -n "$gateway" && "$gateway" == "${from_subnet}"* ]]; then
-            local last_part="${gateway#${from_subnet}.}"
+            local last_part="${gateway#"${from_subnet}".}"
             local new_gateway="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -947,7 +947,7 @@ update_connection_dns() {
     
     for dns in "${dns_servers[@]}"; do
         if [[ "$dns" == "${from_subnet}"* ]]; then
-            local last_part="${dns#${from_subnet}.}"
+            local last_part="${dns#"${from_subnet}".}"
             local new_dns="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -981,7 +981,7 @@ update_connection_routes() {
     
     for route in "${routes[@]}"; do
         if [[ "$route" == "${from_subnet}"* ]]; then
-            local last_part="${route#${from_subnet}.}"
+            local last_part="${route#"${from_subnet}".}"
             local new_route="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then

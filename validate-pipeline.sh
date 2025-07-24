@@ -30,8 +30,8 @@ for file in "${workflow_files[@]}"; do
         if yamllint "$file" >/dev/null 2>&1; then
             echo "✅ Valid YAML: $file"
         else
-    echo "⚠️  yamllint not available or has issues, skipping YAML validation"
-        break
+            echo "❌ Invalid YAML: $file"
+            exit 1
         fi
     else
         echo "⚠️  yamllint not available, skipping YAML validation"

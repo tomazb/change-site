@@ -41,7 +41,7 @@ setup_test_environment() {
     chmod 700 "$TEST_TEMP_DIR"
     
     # Clear test log
-    > "$TEST_LOG"
+    true > "$TEST_LOG"
     
     echo "Test environment ready"
 }
@@ -130,7 +130,7 @@ run_change_site() {
     local exit_code
     
     # Run the script and capture output and exit code
-    if "$CHANGE_SITE_SCRIPT" $args > "$output_file" 2>&1; then
+    if "$CHANGE_SITE_SCRIPT" "$args" > "$output_file" 2>&1; then
         exit_code=0
     else
         exit_code=$?
