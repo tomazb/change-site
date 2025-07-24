@@ -193,6 +193,17 @@ The project includes comprehensive testing infrastructure organized in the `test
 
 See `tests/README.md` for detailed testing documentation.
 
+## Documentation
+
+Complete project documentation is available in the `docs/` directory:
+
+- **[Project Status](docs/PROJECT_STATUS.md)**: Current project overview, features, and metrics
+- **[Staging Testing Guide](docs/STAGING_TESTING_GUIDE.md)**: Comprehensive staging environment testing procedures
+- **[Release Notes](docs/RELEASE_NOTES_v1.0.0.md)**: Detailed v1.0.0 release documentation
+- **[Development Plans](docs/plans/)**: Implementation plans and development documentation
+
+For testing documentation, see `tests/README.md`.
+
 ## Troubleshooting
 
 ### Common Issues

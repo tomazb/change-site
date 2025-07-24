@@ -20,10 +20,17 @@ change-site/
 ├── change-site.conf.example          # Configuration template
 ├── monitoring-dashboard.sh           # Interactive monitoring tool
 ├── debug-config.sh                   # Configuration debugging utility
-├── README.md                         # Comprehensive documentation (247 lines)
-├── STAGING_TESTING_GUIDE.md          # Staging environment testing guide (618 lines)
-├── RELEASE_NOTES_v1.0.0.md           # Detailed release documentation (129 lines)
+├── README.md                         # Main project documentation
 ├── forge.yaml                        # Project configuration
+├── docs/                             # Documentation directory
+│   ├── PROJECT_STATUS.md             # Current project status (this file)
+│   ├── STAGING_TESTING_GUIDE.md      # Staging environment testing guide (618 lines)
+│   ├── RELEASE_NOTES_v1.0.0.md       # Detailed release documentation (129 lines)
+│   └── plans/                        # Development documentation
+│       ├── 2025-07-24-find-code-smells-v1.md
+│       ├── 2025-07-24-refactor-to-best-practices-v1.md
+│       ├── 2025-07-24-documentation-update-v1.md
+│       └── 2025-07-24-immediate-improvements-v1.md
 ├── tests/                            # Comprehensive test suite
 │   ├── README.md                     # Test documentation
 │   ├── run-tests.sh                  # Multi-mode test runner
@@ -31,13 +38,8 @@ change-site/
 │   ├── test-integration.sh           # Integration tests
 │   ├── test-change-site-enhanced.sh  # Enhanced test scenarios
 │   └── test-change-site-fixed.sh     # Regression tests
-├── archive/
-│   └── change-site.sh                # Original script (preserved)
-└── plans/                            # Development documentation
-    ├── 2025-07-24-find-code-smells-v1.md
-    ├── 2025-07-24-refactor-to-best-practices-v1.md
-    ├── 2025-07-24-documentation-update-v1.md
-    └── 2025-07-24-immediate-improvements-v1.md
+└── archive/
+    └── change-site.sh                # Original script (preserved)
 ```
 
 ## 🚀 Feature Matrix
