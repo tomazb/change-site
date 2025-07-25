@@ -382,7 +382,33 @@ apply_config_setting() {
         MAX_PARALLEL_CONNECTIONS)
             CONFIG_MAX_PARALLEL_CONNECTIONS="$value"
             ;;
+        # Support both compact and split subnet pair definitions
+        SUBNET_PAIR_*_FROM)
+            # Example: SUBNET_PAIR_TEST_A_FROM=192.168
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_FROM}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local from_subnet="$value"
+            local to_subnet="${existing#*:}"
+            # Preserve to_subnet if it already exists (otherwise will be empty)
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
+        SUBNET_PAIR_*_TO)
+            # Example: SUBNET_PAIR_TEST_A_TO=172.16
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_TO}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local to_subnet="$value"
+            local from_subnet="${existing%:*}"
+            # Preserve from_subnet if it already exists (otherwise will be empty)
+            if [[ "$from_subnet" == "$existing" ]]; then
+                # existing did not contain ':' yet
+                from_subnet=""
+            fi
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
         SUBNET_PAIR_*)
+            # Compact definition: SUBNET_PAIR_TEST_A="192.168:172.16"
             local pair_name="${key#SUBNET_PAIR_}"
             SUBNET_PAIRS["$pair_name"]="$value"
             ;;
