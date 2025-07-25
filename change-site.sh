@@ -1358,7 +1358,20 @@ parse_arguments() {
     fi
     
     if [[ -n "${PAIR_NAME:-}" ]]; then
+        # Store CLI overrides before loading config for pair resolution
+        local saved_dry_run="$CONFIG_DRY_RUN"
+        local saved_verbose="$CONFIG_VERBOSE"
+        local saved_backup="$CONFIG_CREATE_BACKUP"
+        local saved_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+        
         load_configuration
+        
+        # Restore CLI overrides after config load
+        [[ "$saved_dry_run" == true ]] && CONFIG_DRY_RUN=true
+        [[ "$saved_verbose" == true ]] && CONFIG_VERBOSE=true
+        [[ "$saved_backup" == true ]] && CONFIG_CREATE_BACKUP=true
+        [[ "$saved_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+        
         local subnets
         subnets="$(resolve_subnet_pair "$PAIR_NAME")"
         read -r FROM_SUBNET TO_SUBNET <<< "$subnets"
@@ -1383,8 +1396,22 @@ main() {
     # Parse command line arguments first
     parse_arguments "$@"
     
+    # Store command-line overrides before loading configuration
+    local cli_dry_run="$CONFIG_DRY_RUN"
+    local cli_verbose="$CONFIG_VERBOSE"
+    local cli_backup="$CONFIG_CREATE_BACKUP"
+    local cli_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+    
     # Load configuration after argument parsing
     load_configuration
+    
+    # Restore command-line overrides (CLI takes precedence over config file)
+    [[ "$cli_dry_run" == true ]] && CONFIG_DRY_RUN=true
+    [[ "$cli_verbose" == true ]] && CONFIG_VERBOSE=true
+    [[ "$cli_backup" == true ]] && CONFIG_CREATE_BACKUP=true
+    [[ "$cli_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+    
+    log_debug "Final configuration: DRY_RUN=$CONFIG_DRY_RUN, VERBOSE=$CONFIG_VERBOSE"
     
     log_info "Starting $SCRIPT_NAME v$SCRIPT_VERSION"
     log_debug "Command line: $0 $*"
