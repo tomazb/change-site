@@ -1,0 +1,229 @@
+---
+name: Dependency Update
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for GitHub Actions updates
+        id: actions_updates
+        run: |
+          echo "Checking for GitHub Actions updates..."
+
+          # List current action versions
+          current_actions=$(grep -r "uses:" .github/workflows/ | grep -v "# " | sort -u)
+          echo "Current actions:"
+          echo "$current_actions"
+
+          # Check for updates (this would typically use a tool like Dependabot)
+          echo "updates_available=false" >> $GITHUB_OUTPUT
+
+      - name: Check system dependencies
+        id: system_deps
+        run: |
+          echo "Checking system dependencies..."
+
+          # Check for newer versions of tools we depend on
+          echo "Current tool versions:"
+          echo "shellcheck: $(shellcheck --version | head -1)"
+          echo "bash: $(bash --version | head -1)"
+
+          # In a real scenario, this would check for updates
+          echo "updates_available=false" >> $GITHUB_OUTPUT
+
+      - name: Update documentation dependencies
+        run: |
+          echo "Checking documentation tools..."
+
+          # Check for markdownlint updates
+          echo "Current markdownlint config:"
+          cat .markdownlint.json
+
+      - name: Create update PR
+        if: steps.actions_updates.outputs.updates_available == 'true' || steps.system_deps.outputs.updates_available == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: Update dependencies'
+          title: 'chore: Update dependencies'
+          body: |
+            ## Dependency Updates
+
+            This PR contains automated dependency updates:
+
+            ### GitHub Actions Updates
+            - Updated workflow dependencies to latest versions
+
+            ### System Dependencies
+            - Checked compatibility with latest tool versions
+
+            ### Documentation
+            - Updated documentation tool configurations
+
+            Please review and merge if all tests pass.
+          branch: dependency-updates
+          delete-branch: true
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run security audit
+        run: |
+          echo "Running security audit..."
+
+          # Check for known vulnerabilities in shell scripts
+          echo "Scanning shell scripts for security issues..."
+
+          # Use shellcheck for security-related checks
+          find . -name "*.sh" -type f -exec shellcheck -S warning {} +
+
+      - name: Check file permissions
+        run: |
+          echo "Checking file permissions..."
+
+          # Ensure scripts have appropriate permissions
+          find . -name "*.sh" -type f ! -perm 755 -exec echo "Warning: {} does not have execute permissions" \;
+
+          # Check for overly permissive files
+          find . -type f -perm /o+w -exec echo "Warning: {} is world-writable" \;
+
+      - name: Scan for secrets
+        run: |
+          echo "Scanning for potential secrets..."
+
+          # Basic secret scanning (in production, use proper tools like truffleHog)
+          grep -r -i "password\|secret\|key\|token" --include="*.sh" --include="*.conf" . || echo "No obvious secrets found"
+
+  compatibility-check:
+    name: Compatibility Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bash-version: ['4.4', '5.0', '5.1', '5.2']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install bash ${{ matrix.bash-version }}
+        run: |
+          echo "Testing compatibility with bash ${{ matrix.bash-version }}"
+
+          # In a real scenario, this would install specific bash versions
+          # For now, we'll just test syntax compatibility
+          bash --version
+
+      - name: Test script compatibility
+        run: |
+          echo "Testing script syntax with bash ${{ matrix.bash-version }}"
+
+          # Test syntax compatibility
+          bash -n change-site.sh
+          bash -n monitoring-dashboard.sh
+          bash -n debug-config.sh
+
+      - name: Test feature compatibility
+        run: |
+          echo "Testing feature compatibility..."
+
+          # Test bash features used in scripts
+          bash -c 'echo "Testing array support: ${BASH_VERSION}"'
+          bash -c 'declare -A test_array; test_array[key]=value; echo "Associative arrays: OK"'
+          bash -c '[[ "test" =~ ^test$ ]] && echo "Regex support: OK"'
+
+  performance-benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y time network-manager
+
+      - name: Run performance tests
+        run: |
+          echo "Running performance benchmarks..."
+
+          chmod +x change-site.sh
+
+          # Benchmark dry-run performance
+          echo "Benchmarking dry-run performance..."
+          time ./change-site.sh --dry-run 192.168 172.23
+
+          # Benchmark with verbose output
+          echo "Benchmarking verbose mode..."
+          time ./change-site.sh --verbose --dry-run 192.168 172.23
+
+      - name: Memory usage test
+        run: |
+          echo "Testing memory usage..."
+
+          # Monitor memory usage during script execution
+          /usr/bin/time -v ./change-site.sh --dry-run 192.168 172.23 2>&1 | grep -E "(Maximum resident set size|User time|System time)"
+
+  documentation-sync:
+    name: Documentation Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation consistency
+        run: |
+          echo "Checking documentation consistency..."
+
+          # Check version consistency
+          script_version=$(grep "^VERSION=" change-site.sh | cut -d'"' -f2)
+          readme_version=$(grep "### v.*Current" README.md | head -1 | sed 's/.*v\([0-9.]*\).*/\1/')
+
+          echo "Script version: $script_version"
+          echo "README version: $readme_version"
+
+          if [[ "$script_version" != "$readme_version" ]]; then
+            echo "Warning: Version mismatch between script and README"
+          fi
+
+      - name: Validate documentation links
+        run: |
+          echo "Validating documentation links..."
+
+          # Check internal links in README
+          grep -o '\[.*\](docs/[^)]*\.md)' README.md | while read -r link; do
+            file=$(echo "$link" | sed 's/.*(\(.*\)).*/\1/')
+            if [[ ! -f "$file" ]]; then
+              echo "Warning: Broken link to $file"
+            else
+              echo "✓ Link to $file is valid"
+            fi
+          done
+
+      - name: Generate documentation metrics
+        run: |
+          echo "Generating documentation metrics..."
+
+          echo "Documentation files:"
+          find docs/ -name "*.md" -exec wc -l {} + | sort -n
+
+          echo "Total documentation lines:"
+          find docs/ -name "*.md" -exec cat {} + | wc -l

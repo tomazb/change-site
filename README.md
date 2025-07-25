@@ -203,6 +203,11 @@ Complete project documentation is available in the `docs/` directory:
 - **[Development Plans](docs/plans/)**: Implementation plans and development documentation
 
 For testing documentation, see `tests/README.md`.
+- **[CI/CD Pipeline](docs/CICD_PIPELINE.md)**: Comprehensive CI/CD pipeline documentation
+- **[Contributing Guide](CONTRIBUTING.md)**: Guidelines for contributors and development workflow
+- **[Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md)**: Comprehensive production deployment procedures
+- **[Project Roadmap](docs/ROADMAP.md)**: Development roadmap and future plans
+- **[Security Policy](SECURITY.md)**: Security guidelines and vulnerability reporting
 
 ## Troubleshooting
 

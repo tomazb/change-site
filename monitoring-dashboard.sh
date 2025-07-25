@@ -228,9 +228,9 @@ clear_logs() {
     echo -n "Are you sure you want to clear all logs? (y/N): "
     read -r response
     if [[ "$response" =~ ^[Yy]$ ]]; then
-        [[ -f "$LOG_FILE" ]] && > "$LOG_FILE"
-        [[ -f "$METRICS_FILE" ]] && > "$METRICS_FILE"
-        [[ -f "$STRUCTURED_LOG_FILE" ]] && > "$STRUCTURED_LOG_FILE"
+        [[ -f "$LOG_FILE" ]] && true > "$LOG_FILE"
+        [[ -f "$METRICS_FILE" ]] && true > "$METRICS_FILE"
+        [[ -f "$STRUCTURED_LOG_FILE" ]] && true > "$STRUCTURED_LOG_FILE"
         echo -e "${GREEN}Logs cleared${NC}"
     else
         echo "Operation cancelled"
