@@ -1,0 +1,31 @@
+---
+extends: default
+
+rules:
+  # Allow longer lines for CI workflows as they often contain long commands
+  line-length:
+    max: 120
+    level: warning
+  
+  # Allow truthy values like 'on:' in GitHub Actions
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
+    check-keys: false
+  
+  # Be more lenient with indentation for complex workflows
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  
+  # Allow missing document start for GitHub Actions
+  document-start:
+    present: false
+  
+  # Allow trailing spaces in some contexts
+  trailing-spaces:
+    level: warning
+
+ignore: |
+  archive/
+  tests/
