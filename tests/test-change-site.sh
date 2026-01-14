@@ -125,12 +125,11 @@ assert_exit_code() {
 }
 
 run_change_site() {
-    local args="$*"
     local output_file="$TEST_TEMP_DIR/output.txt"
     local exit_code
     
     # Run the script and capture output and exit code
-    if "$CHANGE_SITE_SCRIPT" "$args" > "$output_file" 2>&1; then
+    if "$CHANGE_SITE_SCRIPT" "$@" > "$output_file" 2>&1; then
         exit_code=0
     else
         exit_code=$?
