@@ -382,7 +382,33 @@ apply_config_setting() {
         MAX_PARALLEL_CONNECTIONS)
             CONFIG_MAX_PARALLEL_CONNECTIONS="$value"
             ;;
+        # Support both compact and split subnet pair definitions
+        SUBNET_PAIR_*_FROM)
+            # Example: SUBNET_PAIR_TEST_A_FROM=192.168
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_FROM}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local from_subnet="$value"
+            local to_subnet="${existing#*:}"
+            # Preserve to_subnet if it already exists (otherwise will be empty)
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
+        SUBNET_PAIR_*_TO)
+            # Example: SUBNET_PAIR_TEST_A_TO=172.16
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_TO}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local to_subnet="$value"
+            local from_subnet="${existing%:*}"
+            # Preserve from_subnet if it already exists (otherwise will be empty)
+            if [[ "$from_subnet" == "$existing" ]]; then
+                # existing did not contain ':' yet
+                from_subnet=""
+            fi
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
         SUBNET_PAIR_*)
+            # Compact definition: SUBNET_PAIR_TEST_A="192.168:172.16"
             local pair_name="${key#SUBNET_PAIR_}"
             SUBNET_PAIRS["$pair_name"]="$value"
             ;;
@@ -857,7 +883,7 @@ parse_connection_field() {
     
     while IFS= read -r line; do
         if [[ "$line" == "${field_name}:"* ]]; then
-            local value="${line#${field_name}:}"
+            local value="${line#"${field_name}":}"
             [[ -n "$value" ]] && values+=("$value")
         fi
     done <<< "$connection_info"
@@ -881,7 +907,7 @@ update_connection_addresses() {
         if [[ "$address" == "${from_subnet}"* ]]; then
             local ip_only="${address%/*}"
             local prefix="${address#*/}"
-            local last_part="${ip_only#${from_subnet}.}"
+            local last_part="${ip_only#"${from_subnet}".}"
             local new_ip="${to_subnet}.${last_part}/${prefix}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -914,7 +940,7 @@ update_connection_gateway() {
     
     for gateway in "${gateways[@]}"; do
         if [[ -n "$gateway" && "$gateway" == "${from_subnet}"* ]]; then
-            local last_part="${gateway#${from_subnet}.}"
+            local last_part="${gateway#"${from_subnet}".}"
             local new_gateway="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -947,7 +973,7 @@ update_connection_dns() {
     
     for dns in "${dns_servers[@]}"; do
         if [[ "$dns" == "${from_subnet}"* ]]; then
-            local last_part="${dns#${from_subnet}.}"
+            local last_part="${dns#"${from_subnet}".}"
             local new_dns="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -981,7 +1007,7 @@ update_connection_routes() {
     
     for route in "${routes[@]}"; do
         if [[ "$route" == "${from_subnet}"* ]]; then
-            local last_part="${route#${from_subnet}.}"
+            local last_part="${route#"${from_subnet}".}"
             local new_route="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -1332,7 +1358,20 @@ parse_arguments() {
     fi
     
     if [[ -n "${PAIR_NAME:-}" ]]; then
+        # Store CLI overrides before loading config for pair resolution
+        local saved_dry_run="$CONFIG_DRY_RUN"
+        local saved_verbose="$CONFIG_VERBOSE"
+        local saved_backup="$CONFIG_CREATE_BACKUP"
+        local saved_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+        
         load_configuration
+        
+        # Restore CLI overrides after config load
+        [[ "$saved_dry_run" == true ]] && CONFIG_DRY_RUN=true
+        [[ "$saved_verbose" == true ]] && CONFIG_VERBOSE=true
+        [[ "$saved_backup" == true ]] && CONFIG_CREATE_BACKUP=true
+        [[ "$saved_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+        
         local subnets
         subnets="$(resolve_subnet_pair "$PAIR_NAME")"
         read -r FROM_SUBNET TO_SUBNET <<< "$subnets"
@@ -1357,8 +1396,22 @@ main() {
     # Parse command line arguments first
     parse_arguments "$@"
     
+    # Store command-line overrides before loading configuration
+    local cli_dry_run="$CONFIG_DRY_RUN"
+    local cli_verbose="$CONFIG_VERBOSE"
+    local cli_backup="$CONFIG_CREATE_BACKUP"
+    local cli_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+    
     # Load configuration after argument parsing
     load_configuration
+    
+    # Restore command-line overrides (CLI takes precedence over config file)
+    [[ "$cli_dry_run" == true ]] && CONFIG_DRY_RUN=true
+    [[ "$cli_verbose" == true ]] && CONFIG_VERBOSE=true
+    [[ "$cli_backup" == true ]] && CONFIG_CREATE_BACKUP=true
+    [[ "$cli_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+    
+    log_debug "Final configuration: DRY_RUN=$CONFIG_DRY_RUN, VERBOSE=$CONFIG_VERBOSE"
     
     log_info "Starting $SCRIPT_NAME v$SCRIPT_VERSION"
     log_debug "Command line: $0 $*"

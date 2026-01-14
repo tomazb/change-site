@@ -57,8 +57,8 @@ setup_enhanced_test_environment() {
     chmod 700 "$TEST_TEMP_DIR"
     
     # Clear logs
-    > "$TEST_LOG"
-    > "$PERFORMANCE_LOG"
+    true > "$TEST_LOG"
+    true > "$PERFORMANCE_LOG"
     
     # Setup mock NetworkManager environment
     setup_mock_networkmanager
