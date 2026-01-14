@@ -18,9 +18,9 @@ rules:
     indent-sequences: true
     check-multi-line-strings: false
   
-  # Allow missing document start for GitHub Actions
+  # Require document start marker (---) for consistency with workflow files
   document-start:
-    present: false
+    present: true
   
   # Allow trailing spaces in some contexts
   trailing-spaces:
