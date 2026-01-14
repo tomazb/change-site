@@ -214,7 +214,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [test, security-scan, documentation]
+    needs: [test, security-scan, documentation, build]
     if: github.event_name == 'release'
 
     steps:
