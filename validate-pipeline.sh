@@ -25,19 +25,18 @@ done
 # Test 2: Validate YAML syntax
 echo
 echo "Test 2: Validating YAML syntax..."
-for file in "${workflow_files[@]}"; do
-    if command -v yamllint >/dev/null 2>&1; then
+if command -v yamllint >/dev/null 2>&1; then
+    for file in "${workflow_files[@]}"; do
         if yamllint "$file" >/dev/null 2>&1; then
             echo "✅ Valid YAML: $file"
         else
             echo "❌ Invalid YAML: $file"
             exit 1
         fi
-    else
-        echo "⚠️  yamllint not available, skipping YAML validation"
-        break
-    fi
-done
+    done
+else
+    echo "⚠️  yamllint not available, skipping YAML validation"
+fi
 
 # Test 3: Check issue templates
 echo
