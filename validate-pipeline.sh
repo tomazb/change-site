@@ -99,23 +99,25 @@ config_files=(
     ".markdownlint.json"
 )
 
-for file in "${config_files[@]}"; do
-    if [[ -f "$file" ]]; then
-        echo "✅ Found: $file"
-        # Validate JSON syntax
-        if command -v jq >/dev/null 2>&1; then
-            if jq empty "$file" >/dev/null 2>&1; then
+if command -v jq >/dev/null 2>&1; then
+    for file in "${config_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            echo "✅ Found: $file"
+            if output=$(jq empty "$file" 2>&1); then
                 echo "✅ Valid JSON: $file"
             else
-                echo "❌ Invalid JSON: $file"
+                echo "❌ Invalid JSON in $file:"
+                echo "$output"
                 exit 1
             fi
+        else
+            echo "❌ Missing: $file"
+            exit 1
         fi
-    else
-        echo "❌ Missing: $file"
-        exit 1
-    fi
-done
+    done
+else
+    echo "⚠️  jq not available, skipping JSON validation"
+fi
 
 # Test 7: Check script permissions
 echo
