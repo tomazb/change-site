@@ -18,17 +18,11 @@ We take security vulnerabilities seriously. If you discover a security vulnerabi
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please use one of the following methods:
+Instead, please use GitHub Security Advisories:
 
-1. **GitHub Security Advisories** (Preferred)
-   - Go to https://github.com/tomazb/change-site/security/advisories
-   - Click "Report a vulnerability"
-   - Fill out the form with details
-
-2. **Email** (Alternative)
-   - Send an email to: [security contact to be added]
-   - Include "SECURITY" in the subject line
-   - Provide detailed information about the vulnerability
+- Go to https://github.com/tomazb/change-site/security/advisories
+- Click "Report a vulnerability"
+- Fill out the form with details
 
 ### What to Include
 
@@ -223,17 +217,9 @@ Security updates are communicated through:
 
 ## Contact Information
 
-### Security Team
+### Reporting Channel
 
-- **Primary Contact**: [To be added]
-- **Backup Contact**: [To be added]
-- **Response Time**: 48 hours maximum
-
-### Reporting Channels
-
-- **GitHub Security**: https://github.com/tomazb/change-site/security
-- **Email**: [To be added]
-- **PGP Key**: [To be added if needed]
+- **GitHub Security Advisories**: https://github.com/tomazb/change-site/security/advisories
 
 ## Acknowledgments
 
@@ -262,5 +248,5 @@ Currently, we do not offer a formal bug bounty program, but we greatly appreciat
 
 ---
 
-**Last Updated**: [Date to be updated]
+**Last Updated**: See git history
 **Version**: 1.0
