@@ -188,8 +188,8 @@ EOF
 }
 
 cleanup_mock_networkmanager() {
-    # Remove mock directory from PATH (filter by exact component then rejoin)
-    PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^${MOCK_NM_DIR}$" | tr '\n' ':' | sed 's/:$//')
+    # Remove mock directory from PATH: exact component match (fixed-string, no regex), then normalize
+    PATH=$(echo "$PATH" | tr ':' '\n' | grep -F -x -v -- "${MOCK_NM_DIR}" | tr '\n' ':' | sed 's/::*/:/g; s/^://; s/:$//')
     export PATH
 }
 

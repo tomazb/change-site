@@ -478,6 +478,10 @@ list_subnet_pairs() {
         local pair_value="${SUBNET_PAIRS[$pair_name]}"
         local from_subnet="${pair_value%:*}"
         local to_subnet="${pair_value#*:}"
+        if [[ -z "$from_subnet" || -z "$to_subnet" ]]; then
+            log_warning "Skipping incomplete pair '$pair_name' (missing source or destination). Define both _FROM and _TO or use compact form."
+            continue
+        fi
         echo "  $pair_name: $from_subnet -> $to_subnet"
     done
 }
@@ -489,6 +493,9 @@ resolve_subnet_pair() {
         local pair_value="${SUBNET_PAIRS[$pair_name]}"
         local from_subnet="${pair_value%:*}"
         local to_subnet="${pair_value#*:}"
+        if [[ -z "$from_subnet" || -z "$to_subnet" ]]; then
+            error_exit "Subnet pair '$pair_name' is incomplete (missing source or destination). Define both SUBNET_PAIR_${pair_name}_FROM and SUBNET_PAIR_${pair_name}_TO in configuration, or use the compact form: SUBNET_PAIR_${pair_name}=\"source:destination\"." "$EXIT_VALIDATION_FAILED"
+        fi
         echo "$from_subnet $to_subnet"
         return 0
     else
@@ -883,7 +890,7 @@ parse_connection_field() {
     
     while IFS= read -r line; do
         if [[ "$line" == "${field_name}:"* ]]; then
-            local value="${line#"${field_name}":}"
+            local value="${line#${field_name}:}"
             [[ -n "$value" ]] && values+=("$value")
         fi
     done <<< "$connection_info"
@@ -907,7 +914,7 @@ update_connection_addresses() {
         if [[ "$address" == "${from_subnet}"* ]]; then
             local ip_only="${address%/*}"
             local prefix="${address#*/}"
-            local last_part="${ip_only#"${from_subnet}".}"
+            local last_part="${ip_only#${from_subnet}.}"
             local new_ip="${to_subnet}.${last_part}/${prefix}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -940,7 +947,7 @@ update_connection_gateway() {
     
     for gateway in "${gateways[@]}"; do
         if [[ -n "$gateway" && "$gateway" == "${from_subnet}"* ]]; then
-            local last_part="${gateway#"${from_subnet}".}"
+            local last_part="${gateway#${from_subnet}.}"
             local new_gateway="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -973,7 +980,7 @@ update_connection_dns() {
     
     for dns in "${dns_servers[@]}"; do
         if [[ "$dns" == "${from_subnet}"* ]]; then
-            local last_part="${dns#"${from_subnet}".}"
+            local last_part="${dns#${from_subnet}.}"
             local new_dns="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -1007,7 +1014,7 @@ update_connection_routes() {
     
     for route in "${routes[@]}"; do
         if [[ "$route" == "${from_subnet}"* ]]; then
-            local last_part="${route#"${from_subnet}".}"
+            local last_part="${route#${from_subnet}.}"
             local new_route="${to_subnet}.${last_part}"
             
             if [[ "$CONFIG_DRY_RUN" == true ]]; then
@@ -1365,7 +1372,8 @@ parse_arguments() {
         local saved_pacemaker="$CONFIG_UPDATE_PACEMAKER"
         
         load_configuration
-        
+        CONFIG_LOADED=true
+
         # Restore CLI overrides after config load
         [[ "$saved_dry_run" == true ]] && CONFIG_DRY_RUN=true
         [[ "$saved_verbose" == true ]] && CONFIG_VERBOSE=true
@@ -1402,8 +1410,10 @@ main() {
     local cli_backup="$CONFIG_CREATE_BACKUP"
     local cli_pacemaker="$CONFIG_UPDATE_PACEMAKER"
     
-    # Load configuration after argument parsing
-    load_configuration
+    # Load configuration after argument parsing (skip if already loaded for --pair)
+    if [[ "${CONFIG_LOADED:-false}" != true ]]; then
+        load_configuration
+    fi
     
     # Restore command-line overrides (CLI takes precedence over config file)
     [[ "$cli_dry_run" == true ]] && CONFIG_DRY_RUN=true
