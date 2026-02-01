@@ -44,7 +44,7 @@ If you have ideas about how this could be implemented, please share them:
 How important is this feature to you?
 - [ ] Critical - blocking current work
 - [ ] High - would significantly improve workflow
-- [ ] Medium - nice to have improvement
+- [ ] Medium - nice-to-have improvement
 - [ ] Low - minor enhancement
 
 ## Additional Context
