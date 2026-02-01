@@ -1,5 +1,7 @@
 #!/bin/bash
 # Fix remaining line length issues in workflow files
+set -Eeuo pipefail
+IFS=$'\n\t'
 
 # Function to break long lines in YAML files (requires GNU awk for match third-arg array)
 fix_long_lines() {
