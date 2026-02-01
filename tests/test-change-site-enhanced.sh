@@ -188,10 +188,9 @@ EOF
 }
 
 cleanup_mock_networkmanager() {
-    # Remove mock directory from PATH
-    export PATH="${PATH//$MOCK_NM_DIR:/}"
-    export PATH="${PATH//:$MOCK_NM_DIR/}"
-    export PATH="${PATH//$MOCK_NM_DIR/}"
+    # Remove mock directory from PATH (filter by exact component then rejoin)
+    PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^${MOCK_NM_DIR}$" | tr '\n' ':' | sed 's/:$//')
+    export PATH
 }
 
 # =============================================================================
