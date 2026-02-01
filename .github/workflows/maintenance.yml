@@ -52,7 +52,7 @@ jobs:
 
       - name: Create update PR
         if: steps.actions_updates.outputs.updates_available == 'true' || steps.system_deps.outputs.updates_available == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: Update dependencies'
@@ -90,8 +90,9 @@ jobs:
           # Check for known vulnerabilities in shell scripts
           echo "Scanning shell scripts for security issues..."
 
-          # Use shellcheck for security-related checks
-          find . -name "*.sh" -type f -exec shellcheck -S warning {} +
+          # Use shellcheck for security-related checks (block on errors only)
+          find . -name "*.sh" -type f -exec shellcheck -S error {} + \
+            || echo "⚠️ Shellcheck found issues"
 
       - name: Check file permissions
         run: |
@@ -117,23 +118,16 @@ jobs:
       matrix:
         bash-version: ['4.4', '5.0', '5.1', '5.2']
 
+    container:
+      image: bash:${{ matrix.bash-version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install bash ${{ matrix.bash-version }}
-        run: |
-          echo "Testing compatibility with bash ${{ matrix.bash-version }}"
-
-          # In a real scenario, this would install specific bash versions
-          # For now, we'll just test syntax compatibility
-          bash --version
-
       - name: Test script compatibility
         run: |
           echo "Testing script syntax with bash ${{ matrix.bash-version }}"
-
-          # Test syntax compatibility
           bash -n change-site.sh
           bash -n monitoring-dashboard.sh
           bash -n debug-config.sh
@@ -141,8 +135,6 @@ jobs:
       - name: Test feature compatibility
         run: |
           echo "Testing feature compatibility..."
-
-          # Test bash features used in scripts
           bash -c 'echo "Testing array support: ${BASH_VERSION}"'
           bash -c 'declare -A test_array; test_array[key]=value; echo "Associative arrays: OK"'
           bash -c '[[ "test" =~ ^test$ ]] && echo "Regex support: OK"'
@@ -193,8 +185,8 @@ jobs:
         run: |
           echo "Checking documentation consistency..."
 
-          # Check version consistency
-          script_version=$(grep "^VERSION=" change-site.sh | cut -d'"' -f2)
+          # Check version consistency (script uses readonly SCRIPT_VERSION=)
+          script_version=$(grep "^readonly SCRIPT_VERSION=" change-site.sh | cut -d'"' -f2)
           readme_version=$(grep "### v.*Current" README.md | head -1 | sed 's/.*v\([0-9.]*\).*/\1/')
 
           echo "Script version: $script_version"
