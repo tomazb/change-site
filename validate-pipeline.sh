@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Pipeline validation test script
 
 echo "=== CI/CD Pipeline Validation Test ==="
@@ -27,10 +28,11 @@ echo
 echo "Test 2: Validating YAML syntax..."
 if command -v yamllint >/dev/null 2>&1; then
     for file in "${workflow_files[@]}"; do
-        if yamllint "$file" >/dev/null 2>&1; then
+        if yamllint "$file" 2>&1; then
             echo "✅ Valid YAML: $file"
         else
             echo "❌ Invalid YAML: $file"
+            yamllint "$file" || true
             exit 1
         fi
     done
