@@ -23,6 +23,11 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   validate-version:
     name: Validate Version
@@ -196,16 +201,44 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge to main
+      - name: Create merge PR to main
         if: github.event.inputs.prerelease != 'true'
-        run: |
-          git fetch origin main
-          git checkout main
-          git pull origin main || true
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-          git merge develop -m "Merge develop for release ${{ needs.validate-version.outputs.version }}" || { echo "Merge failed"; exit 1; }
-          git push origin main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const version = '${{ needs.validate-version.outputs.version }}';
+
+            const existing = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:develop`,
+              base: 'main'
+            });
+
+            if (existing.length > 0) {
+              core.info(`Open PR already exists: #${existing[0].number}`);
+              return;
+            }
+
+            const pr = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: `chore(release): merge develop into main for ${version}`,
+              head: 'develop',
+              base: 'main',
+              body: [
+                `Automated release handoff for ${version}.`,
+                '',
+                '- Source: `develop`',
+                '- Target: `main`',
+                '- Trigger: release workflow'
+              ].join('\n')
+            });
+
+            core.notice(`Created PR #${pr.data.number}: ${pr.data.html_url}`);
 
   post-release:
     name: Post-Release Tasks
