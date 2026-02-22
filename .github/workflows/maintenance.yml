@@ -26,8 +26,24 @@ jobs:
           echo "Current actions:"
           echo "$current_actions"
 
-          # Check for updates (this would typically use a tool like Dependabot)
-          echo "updates_available=false" >> $GITHUB_OUTPUT
+          updates_available=false
+
+          # Apply known safe major-version updates for actions used in this repository
+          for workflow in .github/workflows/*.yml; do
+            [[ -f "$workflow" ]] || continue
+
+            if grep -q 'softprops/action-gh-release@v1' "$workflow"; then
+              sed -i 's|softprops/action-gh-release@v1|softprops/action-gh-release@v2|g' "$workflow"
+              updates_available=true
+            fi
+
+            if grep -q 'peter-evans/create-pull-request@v5' "$workflow"; then
+              sed -i 's|peter-evans/create-pull-request@v5|peter-evans/create-pull-request@v8|g' "$workflow"
+              updates_available=true
+            fi
+          done
+
+          echo "updates_available=$updates_available" >> "$GITHUB_OUTPUT"
 
       - name: Check system dependencies
         id: system_deps
@@ -39,8 +55,18 @@ jobs:
           echo "shellcheck: $(shellcheck --version | head -1)"
           echo "bash: $(bash --version | head -1)"
 
-          # In a real scenario, this would check for updates
-          echo "updates_available=false" >> $GITHUB_OUTPUT
+          updates_available=false
+
+          # Detect upgradable APT packages on the runner as a system dependency signal
+          if command -v apt-get >/dev/null 2>&1; then
+            upgradable_count=$(apt list --upgradable 2>/dev/null | tail -n +2 | wc -l)
+            if [[ "$upgradable_count" -gt 0 ]]; then
+              updates_available=true
+            fi
+            echo "Detected upgradable system packages: $upgradable_count"
+          fi
+
+          echo "updates_available=$updates_available" >> "$GITHUB_OUTPUT"
 
       - name: Update documentation dependencies
         run: |
