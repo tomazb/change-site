@@ -249,4 +249,4 @@ Currently, we do not offer a formal bug bounty program, but we greatly appreciat
 ---
 
 **Last Updated**: See git history
-**Version**: 1.0
+**Version**: 1.1.0
