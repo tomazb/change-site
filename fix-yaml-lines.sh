@@ -17,6 +17,29 @@ fix_long_lines() {
 
   # Use GNU awk to break lines longer than 80 characters at appropriate points
   $awkcmd '
+  function split_outside_quotes(line, op, indent,    i, ch, in_quote, result) {
+    in_quote = 0
+    result = ""
+
+    for (i = 1; i <= length(line); i++) {
+      ch = substr(line, i, 1)
+
+      if (ch == "\"" && (i == 1 || substr(line, i - 1, 1) != "\\")) {
+        in_quote = !in_quote
+      }
+
+      if (!in_quote && substr(line, i, 2) == op) {
+        result = result " \\\n" indent "  " op
+        i++
+        continue
+      }
+
+      result = result ch
+    }
+
+    return result
+  }
+
   length($0) > 80 && /run:/ {
     # For run commands, try to break at logical points
     if (match($0, /^([[:space:]]*)(.*run:[[:space:]]*\|?)(.*)/, arr)) {
@@ -25,8 +48,8 @@ fix_long_lines() {
       command = arr[3]
       print indent prefix
       # Split long commands
-      gsub(/&&/, " \\\n" indent "  &&", command)
-      gsub(/\|\|/, " \\\n" indent "  ||", command)
+      command = split_outside_quotes(command, "&&", indent)
+      command = split_outside_quotes(command, "||", indent)
       print indent "  " command
       next
     }
