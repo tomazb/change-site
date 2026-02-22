@@ -41,7 +41,7 @@ setup_test_environment() {
     chmod 700 "$TEST_TEMP_DIR"
     
     # Clear test log
-    > "$TEST_LOG"
+    true > "$TEST_LOG"
     
     echo "Test environment ready"
 }
@@ -125,12 +125,11 @@ assert_exit_code() {
 }
 
 run_change_site() {
-    local args="$*"
     local output_file="$TEST_TEMP_DIR/output.txt"
     local exit_code
     
     # Run the script and capture output and exit code
-    if "$CHANGE_SITE_SCRIPT" $args > "$output_file" 2>&1; then
+    if "$CHANGE_SITE_SCRIPT" "$@" > "$output_file" 2>&1; then
         exit_code=0
     else
         exit_code=$?
@@ -172,19 +171,22 @@ test_version_option() {
 
 test_invalid_arguments() {
     echo -e "\n${BLUE}Testing invalid arguments...${NC}"
-    
+
     local output
     local exit_code
-    
+
     # Test with no arguments
+    exit_code=0
     output=$(run_change_site 2>&1) || exit_code=$?
     assert_exit_code 1 ${exit_code:-0} "No arguments should exit with code 1"
-    
+
     # Test with one argument
+    exit_code=0
     output=$(run_change_site "192.168" 2>&1) || exit_code=$?
     assert_exit_code 1 ${exit_code:-0} "One argument should exit with code 1"
-    
+
     # Test with invalid option
+    exit_code=0
     output=$(run_change_site "--invalid-option" "192.168" "172.23" 2>&1) || exit_code=$?
     assert_exit_code 1 ${exit_code:-0} "Invalid option should exit with code 1"
 }
@@ -195,23 +197,27 @@ test_invalid_arguments() {
 
 test_subnet_validation() {
     echo -e "\n${BLUE}Testing subnet validation...${NC}"
-    
+
     local output
     local exit_code
-    
+
     # Test invalid subnet format
+    exit_code=0
     output=$(run_change_site "--dry-run" "invalid" "172.23" 2>&1) || exit_code=$?
     assert_exit_code 5 ${exit_code:-0} "Invalid subnet format should exit with code 5"
-    
+
     # Test invalid first octet
+    exit_code=0
     output=$(run_change_site "--dry-run" "300.168" "172.23" 2>&1) || exit_code=$?
     assert_exit_code 5 ${exit_code:-0} "Invalid first octet should exit with code 5"
-    
+
     # Test invalid second octet
+    exit_code=0
     output=$(run_change_site "--dry-run" "192.300" "172.23" 2>&1) || exit_code=$?
     assert_exit_code 5 ${exit_code:-0} "Invalid second octet should exit with code 5"
-    
+
     # Test identical subnets
+    exit_code=0
     output=$(run_change_site "--dry-run" "192.168" "192.168" 2>&1) || exit_code=$?
     assert_exit_code 5 ${exit_code:-0} "Identical subnets should exit with code 5"
 }

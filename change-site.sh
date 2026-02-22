@@ -74,6 +74,10 @@ CONFIG_UPDATE_PACEMAKER=false
 CONFIG_DRY_RUN=false
 CONFIG_CREATE_BACKUP=false
 CONFIG_VERBOSE=false
+CLI_SET_UPDATE_PACEMAKER=false
+CLI_SET_DRY_RUN=false
+CLI_SET_CREATE_BACKUP=false
+CLI_SET_VERBOSE=false
 CONFIG_PROFILE=""
 CONFIG_FILE=""
 CONFIG_MAX_PARALLEL_CONNECTIONS=5
@@ -382,7 +386,33 @@ apply_config_setting() {
         MAX_PARALLEL_CONNECTIONS)
             CONFIG_MAX_PARALLEL_CONNECTIONS="$value"
             ;;
+        # Support both compact and split subnet pair definitions
+        SUBNET_PAIR_*_FROM)
+            # Example: SUBNET_PAIR_TEST_A_FROM=192.168
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_FROM}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local from_subnet="$value"
+            local to_subnet="${existing#*:}"
+            # Preserve to_subnet if it already exists (otherwise will be empty)
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
+        SUBNET_PAIR_*_TO)
+            # Example: SUBNET_PAIR_TEST_A_TO=172.16
+            local pair_full="${key#SUBNET_PAIR_}"
+            local pair_name="${pair_full%_TO}"
+            local existing="${SUBNET_PAIRS[$pair_name]:-}"
+            local to_subnet="$value"
+            local from_subnet="${existing%:*}"
+            # Preserve from_subnet if it already exists (otherwise will be empty)
+            if [[ "$from_subnet" == "$existing" ]]; then
+                # existing did not contain ':' yet
+                from_subnet=""
+            fi
+            SUBNET_PAIRS["$pair_name"]="$from_subnet:$to_subnet"
+            ;;
         SUBNET_PAIR_*)
+            # Compact definition: SUBNET_PAIR_TEST_A="192.168:172.16"
             local pair_name="${key#SUBNET_PAIR_}"
             SUBNET_PAIRS["$pair_name"]="$value"
             ;;
@@ -452,6 +482,10 @@ list_subnet_pairs() {
         local pair_value="${SUBNET_PAIRS[$pair_name]}"
         local from_subnet="${pair_value%:*}"
         local to_subnet="${pair_value#*:}"
+        if [[ -z "$from_subnet" || -z "$to_subnet" ]]; then
+            log_warning "Skipping incomplete pair '$pair_name' (missing source or destination). Define both _FROM and _TO or use compact form."
+            continue
+        fi
         echo "  $pair_name: $from_subnet -> $to_subnet"
     done
 }
@@ -463,6 +497,9 @@ resolve_subnet_pair() {
         local pair_value="${SUBNET_PAIRS[$pair_name]}"
         local from_subnet="${pair_value%:*}"
         local to_subnet="${pair_value#*:}"
+        if [[ -z "$from_subnet" || -z "$to_subnet" ]]; then
+            error_exit "Subnet pair '$pair_name' is incomplete (missing source or destination). Define both SUBNET_PAIR_${pair_name}_FROM and SUBNET_PAIR_${pair_name}_TO in configuration, or use the compact form: SUBNET_PAIR_${pair_name}=\"source:destination\"." "$EXIT_VALIDATION_FAILED"
+        fi
         echo "$from_subnet $to_subnet"
         return 0
     else
@@ -1268,18 +1305,22 @@ parse_arguments() {
                 ;;
             -p|--pacemaker)
                 CONFIG_UPDATE_PACEMAKER=true
+                CLI_SET_UPDATE_PACEMAKER=true
                 shift
                 ;;
             -n|--dry-run)
                 CONFIG_DRY_RUN=true
+                CLI_SET_DRY_RUN=true
                 shift
                 ;;
             -b|--backup)
                 CONFIG_CREATE_BACKUP=true
+                CLI_SET_CREATE_BACKUP=true
                 shift
                 ;;
             --verbose)
                 CONFIG_VERBOSE=true
+                CLI_SET_VERBOSE=true
                 shift
                 ;;
             --config)
@@ -1332,7 +1373,21 @@ parse_arguments() {
     fi
     
     if [[ -n "${PAIR_NAME:-}" ]]; then
+        # Store CLI overrides before loading config for pair resolution
+        local saved_dry_run="$CONFIG_DRY_RUN"
+        local saved_verbose="$CONFIG_VERBOSE"
+        local saved_backup="$CONFIG_CREATE_BACKUP"
+        local saved_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+        
         load_configuration
+        CONFIG_LOADED=true
+
+        # Restore CLI overrides after config load
+        [[ "$CLI_SET_DRY_RUN" == true ]] && CONFIG_DRY_RUN="$saved_dry_run"
+        [[ "$CLI_SET_VERBOSE" == true ]] && CONFIG_VERBOSE="$saved_verbose"
+        [[ "$CLI_SET_CREATE_BACKUP" == true ]] && CONFIG_CREATE_BACKUP="$saved_backup"
+        [[ "$CLI_SET_UPDATE_PACEMAKER" == true ]] && CONFIG_UPDATE_PACEMAKER="$saved_pacemaker"
+        
         local subnets
         subnets="$(resolve_subnet_pair "$PAIR_NAME")"
         read -r FROM_SUBNET TO_SUBNET <<< "$subnets"
@@ -1357,8 +1412,24 @@ main() {
     # Parse command line arguments first
     parse_arguments "$@"
     
-    # Load configuration after argument parsing
-    load_configuration
+    # Store command-line overrides before loading configuration
+    local cli_dry_run="$CONFIG_DRY_RUN"
+    local cli_verbose="$CONFIG_VERBOSE"
+    local cli_backup="$CONFIG_CREATE_BACKUP"
+    local cli_pacemaker="$CONFIG_UPDATE_PACEMAKER"
+    
+    # Load configuration after argument parsing (skip if already loaded for --pair)
+    if [[ "${CONFIG_LOADED:-false}" != true ]]; then
+        load_configuration
+    fi
+    
+    # Restore command-line overrides (CLI takes precedence over config file)
+    [[ "$CLI_SET_DRY_RUN" == true ]] && CONFIG_DRY_RUN="$cli_dry_run"
+    [[ "$CLI_SET_VERBOSE" == true ]] && CONFIG_VERBOSE="$cli_verbose"
+    [[ "$CLI_SET_CREATE_BACKUP" == true ]] && CONFIG_CREATE_BACKUP="$cli_backup"
+    [[ "$CLI_SET_UPDATE_PACEMAKER" == true ]] && CONFIG_UPDATE_PACEMAKER="$cli_pacemaker"
+    
+    log_debug "Final configuration: DRY_RUN=$CONFIG_DRY_RUN, VERBOSE=$CONFIG_VERBOSE"
     
     log_info "Starting $SCRIPT_NAME v$SCRIPT_VERSION"
     log_debug "Command line: $0 $*"
