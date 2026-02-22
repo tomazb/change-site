@@ -74,6 +74,10 @@ CONFIG_UPDATE_PACEMAKER=false
 CONFIG_DRY_RUN=false
 CONFIG_CREATE_BACKUP=false
 CONFIG_VERBOSE=false
+CLI_SET_UPDATE_PACEMAKER=false
+CLI_SET_DRY_RUN=false
+CLI_SET_CREATE_BACKUP=false
+CLI_SET_VERBOSE=false
 CONFIG_PROFILE=""
 CONFIG_FILE=""
 CONFIG_MAX_PARALLEL_CONNECTIONS=5
@@ -1301,18 +1305,22 @@ parse_arguments() {
                 ;;
             -p|--pacemaker)
                 CONFIG_UPDATE_PACEMAKER=true
+                CLI_SET_UPDATE_PACEMAKER=true
                 shift
                 ;;
             -n|--dry-run)
                 CONFIG_DRY_RUN=true
+                CLI_SET_DRY_RUN=true
                 shift
                 ;;
             -b|--backup)
                 CONFIG_CREATE_BACKUP=true
+                CLI_SET_CREATE_BACKUP=true
                 shift
                 ;;
             --verbose)
                 CONFIG_VERBOSE=true
+                CLI_SET_VERBOSE=true
                 shift
                 ;;
             --config)
@@ -1375,10 +1383,10 @@ parse_arguments() {
         CONFIG_LOADED=true
 
         # Restore CLI overrides after config load
-        [[ "$saved_dry_run" == true ]] && CONFIG_DRY_RUN=true
-        [[ "$saved_verbose" == true ]] && CONFIG_VERBOSE=true
-        [[ "$saved_backup" == true ]] && CONFIG_CREATE_BACKUP=true
-        [[ "$saved_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+        [[ "$CLI_SET_DRY_RUN" == true ]] && CONFIG_DRY_RUN="$saved_dry_run"
+        [[ "$CLI_SET_VERBOSE" == true ]] && CONFIG_VERBOSE="$saved_verbose"
+        [[ "$CLI_SET_CREATE_BACKUP" == true ]] && CONFIG_CREATE_BACKUP="$saved_backup"
+        [[ "$CLI_SET_UPDATE_PACEMAKER" == true ]] && CONFIG_UPDATE_PACEMAKER="$saved_pacemaker"
         
         local subnets
         subnets="$(resolve_subnet_pair "$PAIR_NAME")"
@@ -1416,10 +1424,10 @@ main() {
     fi
     
     # Restore command-line overrides (CLI takes precedence over config file)
-    [[ "$cli_dry_run" == true ]] && CONFIG_DRY_RUN=true
-    [[ "$cli_verbose" == true ]] && CONFIG_VERBOSE=true
-    [[ "$cli_backup" == true ]] && CONFIG_CREATE_BACKUP=true
-    [[ "$cli_pacemaker" == true ]] && CONFIG_UPDATE_PACEMAKER=true
+    [[ "$CLI_SET_DRY_RUN" == true ]] && CONFIG_DRY_RUN="$cli_dry_run"
+    [[ "$CLI_SET_VERBOSE" == true ]] && CONFIG_VERBOSE="$cli_verbose"
+    [[ "$CLI_SET_CREATE_BACKUP" == true ]] && CONFIG_CREATE_BACKUP="$cli_backup"
+    [[ "$CLI_SET_UPDATE_PACEMAKER" == true ]] && CONFIG_UPDATE_PACEMAKER="$cli_pacemaker"
     
     log_debug "Final configuration: DRY_RUN=$CONFIG_DRY_RUN, VERBOSE=$CONFIG_VERBOSE"
     
